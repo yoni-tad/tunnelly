@@ -2,7 +2,7 @@
   "name": "tunnelly-monorepo",
   "private": true,
   "version": "1.0.0",
-  "description": "Tunnelly — simple personal localhost HTTPS tunnel",
+  "description": "Tunnelly \u2014 simple personal localhost HTTPS tunnel",
   "type": "module",
   "workspaces": [
     "server",
@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "tsx watch server/src/server.ts",
     "start": "node server/dist/server.js",
-    "cli": "tsx cli/src/index.ts",
+    "cli": "tsx cli/src/index.ts --server http://localhost:4000",
     "local-app": "node examples/local-app/server.mjs",
     "build": "npm run build -w server && npm run build -w cli",
     "typecheck": "tsc -p server && tsc -p cli && tsc -p test",

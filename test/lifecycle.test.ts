@@ -295,4 +295,27 @@ describe('tunnel lifecycle', () => {
       await server.close();
     }
   });
+
+  test('down page: friendly HTML with mascot and steps, JSON for API clients', async () => {
+    const server = await startTestServer();
+    try {
+      const page = await request(server.port, { host: 'tunnel.test', path: '/' });
+      assert.equal(page.status, 503);
+      assert.equal(page.headers['retry-after'], '5');
+      const html = page.body.toString();
+      assert.match(html, /class="mascot"/);
+      assert.match(html, /If you’re the developer/);
+      assert.match(html, /<code>npx tunnelly 3000<\/code>/);
+      assert.match(html, /location\.reload/, 'GET pages retry automatically');
+
+      const post = await request(server.port, { host: 'tunnel.test', method: 'POST', path: '/form', body: 'x=1' });
+      assert.doesNotMatch(post.body.toString(), /location\.reload/, 'POST pages never auto-resubmit');
+
+      const api = await request(server.port, { host: 'tunnel.test', path: '/api', headers: { accept: 'application/json' } });
+      assert.equal(api.status, 503);
+      assert.deepEqual(JSON.parse(api.body.toString()).error, 'No tunnel running');
+    } finally {
+      await server.close();
+    }
+  });
 });

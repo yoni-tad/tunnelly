@@ -80,7 +80,7 @@ export class Ui {
     if (!info.everConnected) {
       this.line();
       this.line(`  ${c.red('✗')} Unable to connect to Tunnelly server.`);
-      if (this.debugMode) this.line(c.dim(`    ${info.reason}`));
+      this.line(c.dim(`    ${info.reason}`));
       this.line(c.dim(`    Retrying in ${seconds} ${unit}...`));
       return;
     }

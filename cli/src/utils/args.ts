@@ -21,7 +21,7 @@ export const USAGE = `Usage:
   npx tunnel <port> [options]
 
 Options:
-  --server <url>   Tunnelly server (default: built-in, or $TUNNELLY_SERVER)
+  --server <url>   Tunnelly server (default: https://tunnelly.yoni-tad.com, or $TUNNELLY_SERVER)
   --host <host>    Local host to forward to (default: localhost)
   --token <token>  Connect token, if the server requires one ($TUNNELLY_TOKEN)
   --skip-check     Start even if nothing is listening on the port yet

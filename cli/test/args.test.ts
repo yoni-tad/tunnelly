@@ -64,7 +64,7 @@ test('parseCliArgs: rejects non-http server URLs', () => {
 test('server URL precedence: flag > env > default', () => {
   assert.equal(resolveServerUrl('https://flag.dev', { TUNNELLY_SERVER: 'https://env.dev' }), 'https://flag.dev');
   assert.equal(resolveServerUrl(undefined, { TUNNELLY_SERVER: 'https://env.dev' }), 'https://env.dev');
-  assert.equal(resolveServerUrl(undefined, {}), 'http://localhost:4000');
+  assert.equal(resolveServerUrl(undefined, {}), 'https://tunnelly.yoni-tad.com');
 });
 
 test('toWebSocketUrl maps http(s) to ws(s) on the connect path', () => {

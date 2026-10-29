@@ -11,7 +11,7 @@ import { PausableSource } from '../../../shared/flow.js';
 import { redactHeaders, stripHopByHop } from '../../../shared/headers.js';
 import { newRequestId } from '../utils/ids.js';
 import { getClientIp } from '../utils/clientIp.js';
-import { sendErrorPage } from '../utils/pages.js';
+import { downPages, sendDownPage, type DownPage } from '../utils/pages.js';
 import { WsBridge } from './WsBridge.js';
 import type { Tunnel } from './Tunnel.js';
 
@@ -143,7 +143,7 @@ export class TunnelConnection {
     const declaredLength = Number(req.headers['content-length'] ?? 0);
     if (declaredLength > config.maxRequestBodyBytes) {
       ex.remoteDone = true; // never sent to the CLI
-      this.failExchange(ex, 413, 'Request body too large', `The limit is ${config.maxRequestBodyBytes} bytes.`);
+      this.failExchange(ex, downPages.tooLarge(config.maxRequestBodyBytes));
       return;
     }
 
@@ -152,12 +152,7 @@ export class TunnelConnection {
     const armTimeout = () => {
       if (ex.timer) clearTimeout(ex.timer);
       ex.timer = setTimeout(() => {
-        this.failExchange(
-          ex,
-          504,
-          'Gateway timeout',
-          `The local application on port ${this.tunnel.localPort} did not respond within ${Math.round(config.requestTimeoutMs / 1000)}s.`,
-        );
+        this.failExchange(ex, downPages.timeout(this.tunnel.localPort, Math.round(config.requestTimeoutMs / 1000)));
       }, config.requestTimeoutMs);
     };
     armTimeout();
@@ -169,7 +164,7 @@ export class TunnelConnection {
       ex.requestBytes += chunk.length;
       this.tunnel.bytesIn += chunk.length;
       if (ex.requestBytes > config.maxRequestBodyBytes) {
-        this.failExchange(ex, 413, 'Request body too large', `The limit is ${config.maxRequestBodyBytes} bytes.`);
+        this.failExchange(ex, downPages.tooLarge(config.maxRequestBodyBytes));
         return;
       }
       this.sendFrame(FrameKind.BODY, ex.id, chunk);
@@ -195,12 +190,12 @@ export class TunnelConnection {
     return headers;
   }
 
-  private failExchange(ex: HttpExchange, status: number, title: string, detail: string): void {
+  private failExchange(ex: HttpExchange, page: DownPage): void {
     if (ex.finished) return;
-    ex.error = title;
-    ex.status = status;
+    ex.error = page.label;
+    ex.status = page.status;
     this.abortRemote(ex);
-    sendErrorPage(ex.res, status, title, detail, ex.id);
+    sendDownPage(ex.res, page, ex.id);
     this.finishExchange(ex);
   }
 
@@ -259,7 +254,7 @@ export class TunnelConnection {
         try {
           ex.res.writeHead(msg.status, msg.statusMessage ?? undefined, ex.responseHeaders);
         } catch (err) {
-          this.failExchange(ex, 502, 'Invalid response from local application', (err as Error).message);
+          this.failExchange(ex, downPages.invalidResponse((err as Error).message));
         }
         return;
       }
@@ -274,8 +269,8 @@ export class TunnelConnection {
         const ex = this.exchanges.get(msg.id);
         if (!ex) return;
         ex.remoteDone = true;
-        const title = msg.code === 'LOCAL_UNAVAILABLE' ? 'Local application unavailable' : 'Local application error';
-        this.failExchange(ex, 502, title, msg.message);
+        const port = this.tunnel.localPort;
+        this.failExchange(ex, msg.code === 'LOCAL_UNAVAILABLE' ? downPages.localDown(port) : downPages.localError(port, msg.message));
         return;
       }
       case 'flow': {
@@ -338,7 +333,7 @@ export class TunnelConnection {
     if (code === 1000) this.graceful = true;
     for (const ex of [...this.exchanges.values()]) {
       ex.remoteDone = true;
-      this.failExchange(ex, 502, 'Tunnel disconnected', 'The Tunnelly CLI disconnected while handling this request.');
+      this.failExchange(ex, downPages.disconnected());
     }
     this.wsBridge.closeAll();
     this.deps.onClose(this, this.graceful);

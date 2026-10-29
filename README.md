@@ -46,20 +46,19 @@ reconnect on their own.
 
 ## Use the CLI
 
-Once, in this repo on your laptop:
+The CLI connects to `https://tunnelly.yoni-tad.com` by default (set in
+[`cli/src/config.ts`](cli/src/config.ts); override with `--server` or `TUNNELLY_SERVER`).
 
 ```bash
-npm install
-TUNNELLY_SERVER=https://tunnelly.yoni-tad.com npm run build -w cli
+npm install && npm run build      # once, in this repo
+npx tunnelly 3000                 # in this repo
+npm i -g ./cli                    # optional: then `tunnelly 3000` works anywhere on this computer
+npm publish -w cli                # optional: then `npx tunnelly 3000` works on any computer
 ```
 
-This bakes your server URL into the CLI, so after that no flags or config are needed.
-Pick how you want to run it:
-
-- **In this repo:** `npx tunnel 3000`
-- **Anywhere on this computer:** `npm i -g ./cli`, then `tunnel 3000`
-- **Any computer, zero setup:** `npm publish -w cli` once, then `npx tunnelly 3000`.
-  The CLI's npm package is named `tunnelly` because the name `tunnel` is taken on npm.
+The npm package is named `tunnelly` because `tunnel` is taken on npm. It also
+installs a `tunnel` command, but a shell alias or function called `tunnel` takes
+priority over it, so use `tunnelly`.
 
 Options: `--server <url>`, `--host <host>` (default `localhost`), `--skip-check`,
 `--debug`, `--help`.
@@ -91,7 +90,7 @@ Browser → https://tunnelly.yoni-tad.com → Traefik (HTTPS) → Tunnelly serve
 npm install
 npm run dev              # Tunnelly server  → http://localhost:4000
 npm run local-app        # test app         → http://localhost:3000
-npm run cli -- 3000      # CLI from source  → public URL http://localhost:4000
+npm run cli -- 3000      # CLI from source, pointed at the local server
 ```
 
 Then open <http://localhost:4000> to see the test app through the tunnel, and

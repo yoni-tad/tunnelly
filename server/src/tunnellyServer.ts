@@ -5,7 +5,7 @@ import { createApp } from './app.js';
 import { MemoryRequestLogStore, type RequestLogStore } from './services/requestLog.js';
 import { TunnelManager } from './tunnel/TunnelManager.js';
 import { createControlServer } from './websocket/controlServer.js';
-import { sendErrorPage } from './utils/pages.js';
+import { downPages, sendDownPage } from './utils/pages.js';
 import { createLogger, type Logger } from './utils/logger.js';
 import { APP_PREFIX, CONNECT_PATH } from '../../shared/protocol.js';
 
@@ -51,9 +51,9 @@ export async function startServer(
     }
     const tunnel = manager.current;
     if (!tunnel) {
-      sendErrorPage(res, 503, 'No tunnel running', 'Start one on your computer with: npx tunnel 3000');
+      sendDownPage(res, downPages.noTunnel());
     } else if (!tunnel.connection) {
-      sendErrorPage(res, 502, 'Tunnel offline', 'The Tunnelly CLI is reconnecting. Try again in a few seconds.');
+      sendDownPage(res, downPages.reconnecting());
     } else {
       tunnel.connection.forwardHttp(req, res);
     }
