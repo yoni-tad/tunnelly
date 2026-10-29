@@ -1,6 +1,7 @@
 import { VERSION } from '../config.js';
 import { Ui } from '../logger/ui.js';
 import { findLocalAddress } from '../network/checkLocal.js';
+import { fetchLatestVersion, isNewer } from '../network/updateCheck.js';
 import { TunnelClient } from '../tunnel/TunnelClient.js';
 import { parseCliArgs, USAGE } from '../utils/args.js';
 
@@ -37,6 +38,13 @@ export async function runTunnelCommand(argv: string[]): Promise<number> {
 
   ui.banner();
   ui.connecting(options.serverUrl, VERSION);
+
+  // Non-blocking: an outdated global install should never fail silently again.
+  if (!VERSION.includes('dev') && !process.env.TUNNELLY_NO_UPDATE_CHECK) {
+    void fetchLatestVersion().then((latest) => {
+      if (latest && isNewer(latest, VERSION)) ui.updateAvailable(VERSION, latest);
+    });
+  }
 
   const client = new TunnelClient({
     serverUrl: options.serverUrl,

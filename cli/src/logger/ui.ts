@@ -69,6 +69,13 @@ export class Ui {
     this.line();
   }
 
+  updateAvailable(current: string, latest: string): void {
+    this.line();
+    this.line(`  ${c.yellow('↑')} Update available: ${current} → ${c.bold(latest)}`);
+    this.line(c.dim('    npm i -g tunnelly@latest'));
+    this.line();
+  }
+
   disconnected(reason: string): void {
     this.line();
     this.line(`  ${c.yellow('●')} Disconnected ${c.dim(`(${reason})`)}`);
