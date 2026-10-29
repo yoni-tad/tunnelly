@@ -111,7 +111,7 @@ npm run typecheck
 | `PUBLIC_URL` | `http://localhost:4000` | Your public URL. |
 | `DASHBOARD_PASSWORD` | (required in production) | Dashboard login, any username. |
 | `TUNNEL_CONNECT_TOKEN` | off | Optional: CLI must send it (`TUNNELLY_TOKEN` env or `--token`). Without it, anyone who finds your server can use it while your tunnel is off. |
-| `REQUEST_TIMEOUT_MS` | `60000` | 504 if your app is silent this long. |
+| `REQUEST_TIMEOUT_MS` | `60000` | Show the "taking too long" page if your app is silent this long. |
 | `MAX_REQUEST_BODY_MB` | `50` | Bigger uploads get 413. |
 | `PORT` | `4000` | Container port. |
 
@@ -122,9 +122,10 @@ npm run typecheck
 | `✗ Cannot connect to localhost:3000` | Start your app first (or `--host 127.0.0.1`, or `--skip-check`). |
 | `✗ Unable to connect to Tunnelly server` | Check `https://tunnelly.yoni-tad.com/_tunnelly/health` and the Dokploy logs. Run the CLI with `--debug` to see which server it uses. |
 | `✗ A tunnel is already active.` | Stop the other CLI. If that machine went offline, the tunnel frees itself within about 3 minutes. |
-| Browser shows **No tunnel running** (503) | The server works; start `npx tunnel 3000`. |
-| Browser shows **Tunnel offline** (502) | The CLI is reconnecting. |
-| Browser shows **Local application unavailable** (502) | The tunnel is up but your app stopped. |
+| Mole page: **Nobody’s home right now** | The server works; start `npx tunnelly 3000`. |
+| Mole page: **Lost the connection…** | The CLI is reconnecting. |
+| Mole page: **The app on the other end isn’t running** | The tunnel is up but your app stopped. |
+| Cloudflare’s own **Bad gateway** page | Tunnelly itself is down or redeploying. Check the app in Dokploy. Tunnelly’s pages always use 503, so Cloudflare doesn’t replace them. |
 | Certificate or HTTPS error | Check that the DNS `A` record points at the Dokploy server, and the domain's HTTPS / Let's Encrypt setting in Dokploy. |
 
 More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

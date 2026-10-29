@@ -232,7 +232,7 @@ describe('tunnel lifecycle', () => {
     await waitFor(() => server.manager.currentInfo()?.status === 'DISCONNECTED', 2000, 'heartbeat timeout');
     // During the grace period the URL answers "offline" rather than routing elsewhere.
     const offline = await request(server.port, { host });
-    assert.equal(offline.status, 502);
+    assert.equal(offline.status, 503);
 
     await waitFor(() => server.manager.current === null, 2000, 'release');
     const gone = await request(server.port, { host });

@@ -179,7 +179,7 @@ export class LocalForwarder {
       id: ex.id,
       method: ex.method,
       path: ex.path,
-      status: ex.status || 502,
+      status: ex.status || 503,
       durationMs: Date.now() - ex.startedAt,
       responseBytes: ex.responseBytes,
       error,

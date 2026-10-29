@@ -36,7 +36,7 @@ CLI                                   Server
 Other messages:
 
 - `request-abort`: the browser went away, so the CLI cancels the local request.
-- `response-error`: the local app is unreachable or failed. The server answers 502.
+- `response-error`: the local app is unreachable or failed. The server answers with a 503 "down" page.
 - `flow {id, paused}`: backpressure (see below).
 - `ws-open` / `ws-accept` / `ws-reject` / `ws-close` and WS frames: forwarded WebSockets.
 - `shutdown`: Ctrl+C. The server releases the tunnel immediately.
@@ -66,7 +66,12 @@ bodies have no size limit, since they stream.
 
 **Idle timeout instead of a fixed timeout.**
 `REQUEST_TIMEOUT_MS` restarts with every uploaded chunk and stops once the local
-app begins responding. A slow 50 MB upload is fine, but a hung app gets a 504.
+app begins responding. A slow 50 MB upload is fine, but a hung app gets a "taking too long" page.
+
+**Down pages always use 503.**
+Cloudflare replaces an origin's 502/504 responses with its own error page, so
+every Tunnelly down page (no tunnel, reconnecting, app stopped, timeout) uses
+503 with `Retry-After`. Cloudflare passes those through unchanged.
 Long streaming responses (SSE, downloads) are never cut off.
 
 **Heartbeats on both sides.**

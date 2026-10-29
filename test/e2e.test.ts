@@ -161,9 +161,9 @@ describe('end-to-end HTTP tunnel', () => {
     if (res) assert.equal(res.status, 413);
   });
 
-  test('slow local response times out with 504', async () => {
+  test('slow local response times out with 503 (not 504, which Cloudflare would replace)', async () => {
     const res = await request(server.port, { host, path: '/slow' });
-    assert.equal(res.status, 504);
+    assert.equal(res.status, 503);
     assert.match(res.body.toString(), /Gateway timeout/);
   });
 
@@ -242,7 +242,7 @@ describe('end-to-end HTTP tunnel', () => {
 });
 
 describe('local application unavailable', () => {
-  test('returns 502 when nothing listens on the local port', async () => {
+  test('returns 503 when nothing listens on the local port', async () => {
     const app = await startLocalApp((_req, res) => res.end('x'));
     const port = app.port;
     await app.close(); // port is now closed
@@ -252,10 +252,10 @@ describe('local application unavailable', () => {
     try {
       const { publicUrl } = await connectClient(client);
       const res = await request(server.port, { host: hostOf(publicUrl), path: '/' });
-      assert.equal(res.status, 502);
+      assert.equal(res.status, 503);
       assert.match(res.body.toString(), /Local application unavailable/);
       const entry = server.logStore.list(1)[0];
-      assert.equal(entry?.status, 502);
+      assert.equal(entry?.status, 503);
       assert.equal(entry?.error, 'Local application unavailable');
     } finally {
       await client.stop();

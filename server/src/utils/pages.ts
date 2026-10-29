@@ -1,7 +1,12 @@
 import type { ServerResponse } from 'node:http';
 import { APP_PREFIX } from '../../../shared/protocol.js';
 
-/** What a visitor sees when the tunnel can't serve their request. */
+/**
+ * What a visitor sees when the tunnel can't serve their request.
+ *
+ * Every "down" page uses 503: Cloudflare (and some other proxies) replace an
+ * origin's 502/504 responses with their own error page, hiding this one.
+ */
 export interface DownPage {
   status: number;
   /** Short machine-ish label, also used in request logs ("Gateway timeout"). */
@@ -32,7 +37,7 @@ export const downPages = {
   }),
 
   reconnecting: (): DownPage => ({
-    status: 502,
+    status: 503,
     label: 'Tunnel offline',
     title: 'Lost the connection to the developer’s computer',
     detail: 'The Tunnelly CLI dropped off — usually the internet went away for a moment. It reconnects automatically.',
@@ -47,7 +52,7 @@ export const downPages = {
   disconnected: (): DownPage => ({ ...downPages.reconnecting(), label: 'Tunnel disconnected' }),
 
   localDown: (port: number): DownPage => ({
-    status: 502,
+    status: 503,
     label: 'Local application unavailable',
     title: 'The app on the other end isn’t running',
     detail: `The tunnel is up, but nothing answered on localhost:${port}.`,
@@ -60,7 +65,7 @@ export const downPages = {
   }),
 
   localError: (port: number, message: string): DownPage => ({
-    status: 502,
+    status: 503,
     label: 'Local application error',
     title: 'The app hit a problem',
     detail: `The connection to localhost:${port} broke while answering: ${message}`,
@@ -68,7 +73,7 @@ export const downPages = {
   }),
 
   invalidResponse: (message: string): DownPage => ({
-    status: 502,
+    status: 503,
     label: 'Invalid response from local application',
     title: 'The app sent something unexpected',
     detail: `Its response couldn’t be passed on: ${message}`,
@@ -76,7 +81,7 @@ export const downPages = {
   }),
 
   timeout: (port: number, seconds: number): DownPage => ({
-    status: 504,
+    status: 503,
     label: 'Gateway timeout',
     title: 'The app is taking too long',
     detail: `localhost:${port} didn’t answer within ${seconds} seconds.`,
@@ -189,7 +194,7 @@ export function sendDownPage(res: ServerResponse, page: DownPage, requestId?: st
     'content-type': wantsJson ? 'application/json; charset=utf-8' : 'text/html; charset=utf-8',
     'content-length': Buffer.byteLength(body),
     'cache-control': 'no-store',
-    ...(page.status === 503 ? { 'retry-after': '5' } : {}),
+    ...(page.status === 503 ? { 'retry-after': '5' } : {}), // all down pages
     ...(requestId ? { 'x-tunnelly-request-id': requestId } : {}),
   });
   res.end(body);
