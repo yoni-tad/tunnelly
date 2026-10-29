@@ -20,8 +20,6 @@ export class Tunnel {
 
   constructor(
     readonly id: string,
-    readonly subdomain: string,
-    readonly hostname: string,
     readonly publicUrl: string,
     /** Internal secret for resuming this session. Never exposed via the API or logs. */
     readonly sessionToken: string,
@@ -33,7 +31,6 @@ export class Tunnel {
   info(): TunnelInfo {
     return {
       id: this.id,
-      hostname: this.hostname,
       publicUrl: this.publicUrl,
       status: this.status,
       localPort: this.localPort,

@@ -5,7 +5,7 @@ import type { ServerConfig } from '../server/src/config/index.js';
 import { createLogger } from '../server/src/utils/logger.js';
 import { TunnelClient, type ConnectedEvent, type TunnelClientOptions } from '../cli/src/tunnel/TunnelClient.js';
 
-export const DOMAIN = 'tunnelly.test';
+export const PUBLIC_URL = 'http://tunnel.test';
 
 export async function startTestServer(overrides: Partial<ServerConfig> = {}): Promise<TunnellyServer> {
   return startServer(
@@ -13,10 +13,7 @@ export async function startTestServer(overrides: Partial<ServerConfig> = {}): Pr
       port: 0,
       host: '127.0.0.1',
       nodeEnv: 'test',
-      domain: DOMAIN,
-      appHosts: ['localhost', '127.0.0.1'],
-      publicProtocol: 'http',
-      publicPort: '',
+      publicUrl: PUBLIC_URL,
       trustProxy: false,
       dashboardPassword: '',
       connectToken: '',
@@ -86,7 +83,7 @@ export interface TestResponse {
   body: Buffer;
 }
 
-/** Send a request to the Tunnelly server as if it came to `host` (e.g. abc.tunnelly.test). */
+/** Send a request to the Tunnelly server with the given Host header (e.g. tunnel.test). */
 export function request(
   port: number,
   opts: { host: string; method?: string; path?: string; headers?: http.OutgoingHttpHeaders; body?: Buffer | string },

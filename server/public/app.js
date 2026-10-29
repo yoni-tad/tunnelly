@@ -123,7 +123,7 @@
       const [status, list] = await Promise.all([getJson('api/status'), getJson('api/requests?limit=300')]);
       tunnel = status.tunnel;
       requests = list.requests;
-      $('server-domain').textContent = status.server.domain;
+      $('server-domain').textContent = status.server.publicUrl;
       renderTunnel();
       renderRows();
     } catch {

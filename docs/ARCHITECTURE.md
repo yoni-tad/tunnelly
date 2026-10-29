@@ -4,8 +4,8 @@
 
 | Part | Responsibility |
 |---|---|
-| **Reverse proxy** (Caddy/nginx) | TLS termination, certificates, WebSocket upgrades. Node never sees TLS. |
-| **Server** (`server/`) | Routes by `Host`. `DOMAIN` serves the Express dashboard, API and CLI endpoint. `<id>.DOMAIN` goes to the tunnel. Holds tunnel state and request logs. |
+| **Reverse proxy** (Dokploy's Traefik) | TLS termination, certificates, WebSocket upgrades. Node never sees TLS. |
+| **Server** (`server/`) | Routes by path. `/_tunnelly/…` is the Express dashboard, API, health check and CLI endpoint. Everything else goes to the tunnel. Holds tunnel state and request logs. |
 | **CLI** (`cli/`) | Keeps one WebSocket open to the server, replays requests against `localhost`, prints logs, reconnects. |
 | **Shared** (`shared/`) | Wire protocol, frame encoding, backpressure and header helpers. esbuild bundles it into each side, so the CLI publishes as a single file. |
 
@@ -14,7 +14,7 @@ handler forwards it, so bodies stream untouched.
 
 ## Wire protocol
 
-There is one WebSocket per tunnel: `wss://DOMAIN/_tunnelly/connect`.
+There is one WebSocket per tunnel: `wss://PUBLIC_URL/_tunnelly/connect`.
 
 - **Text frames** carry JSON control messages (see `shared/protocol.ts`).
 - **Binary frames** carry body chunks: `[kind u8][idLen u8][request id][payload]`.
@@ -23,7 +23,7 @@ There is one WebSocket per tunnel: `wss://DOMAIN/_tunnelly/connect`.
 CLI                                   Server
  │── hello {version, localPort, resume?} ──▶│
  │◀── ready {tunnelId, publicUrl, sessionToken, resumed}
- │                                         │◀── GET https://abc.example.com/users
+ │                                         │◀── GET https://tunnelly.yoni-tad.com/users
  │◀── request-start {id, method, path, headers}
  │◀── BODY frames (request body, if any)
  │◀── request-end {id}
@@ -74,23 +74,28 @@ The server pings every 15s and terminates a CLI that has been silent for 45s. Th
 CLI does the same in the other direction. This matters after a Wi-Fi drop, when
 the TCP socket can look open for minutes while nothing gets through.
 
-**Session resume instead of permanent URLs.**
+**One fixed URL.**
+V1 serves the single tunnel at the root of `PUBLIC_URL` and keeps Tunnelly's own
+pages under `/_tunnelly/`. That needs one DNS record and one ordinary certificate:
+no wildcard DNS and no DNS-provider API tokens. The cost is that the local app's own
+`/_tunnelly/*` paths are unreachable.
+
+**Session resume.**
 On `ready`, the server issues a random 256-bit `sessionToken`. The token lives
 only in the CLI's memory and is never logged or exposed by the API. After an
-unexpected drop, the server marks the tunnel `DISCONNECTED` but keeps its hostname
-reserved for `RESUME_GRACE_MS`. A reconnect that presents the token gets the same
-URL back. If the server still believes the old socket is alive (half-open), the
-stale socket is replaced. Any connection without the token is rejected while the
-tunnel is active, so nobody can take it over by accident. After a server restart
-the token is unknown, so the CLI gets a new URL and says so.
+unexpected drop, the server marks the tunnel `DISCONNECTED` but keeps the session
+for `RESUME_GRACE_MS`. A reconnect that presents the token resumes it. If the
+server still believes the old socket is alive (half-open), the stale socket is
+replaced. Any connection without the token is rejected while the tunnel is
+active, so nobody can take it over by accident.
 
 The grace period does **not** block new tunnels. Only a `CONNECTED` tunnel
 causes a `TUNNEL_ACTIVE` rejection.
 
 **One tunnel at a time.**
 `TunnelManager` holds a single `active` tunnel. Supporting several later means
-turning it into a `Map<subdomain, Tunnel>` and replacing the rejection with a
-per-account limit. Routing already looks tunnels up by subdomain.
+giving each tunnel its own hostname (wildcard DNS), turning `active` into a
+`Map<hostname, Tunnel>`, and routing by `Host` in `tunnellyServer.ts`.
 
 **In-memory request logs instead of PostgreSQL.**
 Logs are a ring buffer of the last 1000 requests behind the `RequestLogStore`
@@ -131,7 +136,7 @@ npm can link it before the bundle has been built.
 | Future | Where |
 |---|---|
 | Accounts + API keys | Validate in `websocket/controlServer.ts` (the handshake already checks a token). Add `ownerId` to `Tunnel`. |
-| Permanent subdomains | `TunnelManager.register`: pick the subdomain from the account instead of `newSubdomain()`. |
-| Multiple tunnels | `TunnelManager.active` becomes a map. `findBySubdomain` already exists. |
+| Per-tunnel subdomains | Add wildcard DNS, give each `Tunnel` a hostname, route by `Host` in `tunnellyServer.ts`. |
+| Multiple tunnels | `TunnelManager.active` becomes a map keyed by hostname. |
 | Teams / billing | Live entirely above the account layer. The tunnel core doesn't change. |
 | Persistent logs | Implement `RequestLogStore` with PostgreSQL. |

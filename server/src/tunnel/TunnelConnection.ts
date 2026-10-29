@@ -10,7 +10,7 @@ import { decodeFrame, encodeFrame, FrameKind, toBuffer } from '../../../shared/f
 import { PausableSource } from '../../../shared/flow.js';
 import { redactHeaders, stripHopByHop } from '../../../shared/headers.js';
 import { newRequestId } from '../utils/ids.js';
-import { getClientIp } from '../utils/hosts.js';
+import { getClientIp } from '../utils/clientIp.js';
 import { sendErrorPage } from '../utils/pages.js';
 import { WsBridge } from './WsBridge.js';
 import type { Tunnel } from './Tunnel.js';
@@ -188,8 +188,9 @@ export class TunnelConnection {
       const value = req.headers[name];
       return config.trustProxy && typeof value === 'string' ? value : undefined;
     };
-    headers['x-forwarded-proto'] = fromProxy('x-forwarded-proto') ?? config.publicProtocol;
-    headers['x-forwarded-host'] = req.headers.host ?? this.tunnel.hostname;
+    const publicUrl = new URL(config.publicUrl);
+    headers['x-forwarded-proto'] = fromProxy('x-forwarded-proto') ?? publicUrl.protocol.slice(0, -1);
+    headers['x-forwarded-host'] = req.headers.host ?? publicUrl.host;
     headers['x-forwarded-for'] = fromProxy('x-forwarded-for') ?? clientIp;
     return headers;
   }

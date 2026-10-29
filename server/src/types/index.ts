@@ -5,7 +5,6 @@ export type TunnelStatus = 'CONNECTING' | 'CONNECTED' | 'DISCONNECTED';
 /** Public (dashboard-safe) view of a tunnel. Never includes the session token. */
 export interface TunnelInfo {
   id: string;
-  hostname: string;
   publicUrl: string;
   status: TunnelStatus;
   localPort: number;

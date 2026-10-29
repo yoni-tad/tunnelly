@@ -6,7 +6,7 @@ import { safeCloseCode, type WsAcceptMessage, type WsCloseMessage, type WsReject
 import { FrameKind, toBuffer, type Frame } from '../../../shared/frames.js';
 import { redactHeaders, stripHopByHop } from '../../../shared/headers.js';
 import { newRequestId } from '../utils/ids.js';
-import { getClientIp } from '../utils/hosts.js';
+import { getClientIp } from '../utils/clientIp.js';
 import type { ConnectionDeps, TunnelConnection } from './TunnelConnection.js';
 
 /**

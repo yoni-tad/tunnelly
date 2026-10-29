@@ -17,6 +17,4 @@ export function randomLabel(length: number): string {
 
 export const newTunnelId = () => `tnl_${randomLabel(10)}`;
 export const newRequestId = () => `req_${randomBytes(6).toString('hex')}`;
-/** 8 chars of base36 ≈ 41 bits — unguessable enough for a temporary URL. */
-export const newSubdomain = () => randomLabel(8);
 export const newSessionToken = () => randomBytes(32).toString('base64url');

@@ -10,7 +10,7 @@ export function apiRouter(deps: { manager: TunnelManager; logStore: RequestLogSt
     res.json({
       tunnel: deps.manager.currentInfo(),
       server: {
-        domain: deps.config.domain,
+        publicUrl: deps.config.publicUrl,
         startedAt: deps.startedAt,
         uptimeMs: Date.now() - deps.startedAt,
       },

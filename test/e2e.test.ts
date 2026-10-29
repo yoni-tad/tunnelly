@@ -187,37 +187,36 @@ describe('end-to-end HTTP tunnel', () => {
   });
 
   test('dashboard API exposes tunnel status and request logs', async () => {
-    const status = await request(server.port, { host: 'localhost', path: '/api/status' });
+    const status = await request(server.port, { host, path: '/_tunnelly/api/status' });
     const body = JSON.parse(status.body.toString());
     assert.equal(body.tunnel.status, 'CONNECTED');
-    assert.equal(body.tunnel.hostname, host);
+    assert.equal(body.tunnel.publicUrl, 'http://tunnel.test');
     assert.equal(body.tunnel.localPort, app.port);
     assert.ok(body.tunnel.requestCount > 0);
     assert.ok(body.tunnel.bytesOut > 0);
     assert.equal(body.tunnel.sessionToken, undefined, 'session token is never exposed');
 
-    const list = JSON.parse((await request(server.port, { host: 'localhost', path: '/api/requests' })).body.toString());
+    const list = JSON.parse((await request(server.port, { host, path: '/_tunnelly/api/requests' })).body.toString());
     assert.ok(list.requests.length > 0);
     assert.equal(list.requests[0].requestHeaders, undefined, 'list view omits headers');
 
-    const detail = await request(server.port, { host: 'localhost', path: `/api/requests/${list.requests[0].id}` });
+    const detail = await request(server.port, { host, path: `/_tunnelly/api/requests/${list.requests[0].id}` });
     assert.equal(detail.status, 200);
     assert.ok(JSON.parse(detail.body.toString()).requestHeaders);
 
-    const page = await request(server.port, { host: 'localhost', path: '/' });
+    const page = await request(server.port, { host, path: '/_tunnelly/' });
     assert.equal(page.status, 200);
     assert.match(page.body.toString(), /<title>Tunnelly<\/title>/);
+
+    const redirect = await request(server.port, { host, path: '/_tunnelly' });
+    assert.equal(redirect.status, 301);
+    assert.equal(redirect.headers.location, '/_tunnelly/');
   });
 
-  test('unknown subdomain returns 404', async () => {
-    const res = await request(server.port, { host: 'doesnotexist.tunnelly.test', path: '/' });
-    assert.equal(res.status, 404);
-    assert.match(res.body.toString(), /Tunnel not found/);
-  });
-
-  test('unknown host returns 404', async () => {
-    const res = await request(server.port, { host: 'evil.example.org', path: '/' });
-    assert.equal(res.status, 404);
+  test('any Host header reaches the tunnel (one URL, routed by path)', async () => {
+    const res = await request(server.port, { host: 'localhost:4000', path: '/' });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.toString(), 'Hello from local application');
   });
 
   test('WebSocket connections are forwarded (text and binary)', async () => {

@@ -4,7 +4,7 @@ import type { RequestLogStore } from '../services/requestLog.js';
 import type { Logger } from '../utils/logger.js';
 import type { TunnelInfo } from '../types/index.js';
 import { CloseCode, type ErrorMessage, type HelloMessage, type TunnelErrorCode } from '../../../shared/protocol.js';
-import { newSessionToken, newSubdomain, newTunnelId } from '../utils/ids.js';
+import { newSessionToken, newTunnelId } from '../utils/ids.js';
 import { safeEqual } from '../utils/secure.js';
 import { Tunnel } from './Tunnel.js';
 import { TunnelConnection } from './TunnelConnection.js';
@@ -22,10 +22,11 @@ export function rejectConnection(ws: WebSocket, code: TunnelErrorCode, message: 
 }
 
 /**
- * Owns tunnel sessions. V1 policy: exactly one tunnel at a time.
+ * Owns tunnel sessions. V1 policy: exactly one tunnel at a time, served at
+ * PUBLIC_URL.
  *
- * (Multiple tunnels later = turn `active` into a Map keyed by subdomain and
- * change the TUNNEL_ACTIVE check into a per-account limit.)
+ * (Multiple tunnels later = give each tunnel its own hostname, turn `active`
+ * into a Map keyed by hostname, and make TUNNEL_ACTIVE a per-account limit.)
  */
 export class TunnelManager {
   private active: Tunnel | null = null;
@@ -64,13 +65,9 @@ export class TunnelManager {
     // The previous tunnel dropped and never resumed — it no longer blocks new ones.
     if (existing) this.release(existing, 'superseded by a new tunnel');
 
-    const subdomain = newSubdomain();
-    const hostname = `${subdomain}.${this.deps.config.domain}`;
     const tunnel = new Tunnel(
       newTunnelId(),
-      subdomain,
-      hostname,
-      this.publicUrlFor(hostname),
+      this.deps.config.publicUrl,
       newSessionToken(),
       hello.localPort,
       hello.clientVersion,
@@ -140,16 +137,9 @@ export class TunnelManager {
     this.deps.logger.info(`Tunnel disconnected: ${tunnel.id}`, { reason });
   }
 
-  private publicUrlFor(hostname: string): string {
-    const { publicProtocol, publicPort } = this.deps.config;
-    const defaultPort = publicProtocol === 'https' ? '443' : '80';
-    const port = publicPort && publicPort !== defaultPort ? `:${publicPort}` : '';
-    return `${publicProtocol}://${hostname}${port}`;
-  }
-
-  /** The tunnel serving `<subdomain>.DOMAIN`, if any (connected or reconnecting). */
-  findBySubdomain(subdomain: string): Tunnel | null {
-    return this.active?.subdomain === subdomain ? this.active : null;
+  /** The tunnel serving the public URL, if any (connected or reconnecting). */
+  get current(): Tunnel | null {
+    return this.active;
   }
 
   /** Dashboard view: the active tunnel, or the most recent one. */

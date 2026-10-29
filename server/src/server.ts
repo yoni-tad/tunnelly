@@ -6,9 +6,8 @@ async function main() {
   const { config, logger } = server;
 
   logger.info(`Server started on ${config.host}:${server.port}`, { env: config.nodeEnv });
-  const port = config.publicPort ? ':' + config.publicPort : '';
-  logger.info(`Dashboard: ${config.publicProtocol}://${config.domain}${port}`);
-  logger.info(`Tunnels:   ${config.publicProtocol}://<id>.${config.domain}${port}`);
+  logger.info(`Public URL: ${config.publicUrl}`);
+  logger.info(`Dashboard:  ${config.publicUrl}/_tunnelly/`);
   if (!config.dashboardPassword) logger.warn('DASHBOARD_PASSWORD is not set — dashboard is unauthenticated (dev only)');
 
   let stopping = false;

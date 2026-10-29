@@ -11,8 +11,14 @@
 
 export const PROTOCOL_VERSION = 1;
 
-/** Path on the app host where the CLI opens its control WebSocket. */
-export const CONNECT_PATH = '/_tunnelly/connect';
+/**
+ * Everything under this path belongs to Tunnelly itself (dashboard, API, CLI
+ * endpoint). Every other path on the public URL is forwarded to the tunnel.
+ */
+export const APP_PREFIX = '/_tunnelly';
+
+/** Where the CLI opens its control WebSocket. */
+export const CONNECT_PATH = `${APP_PREFIX}/connect`;
 
 export type HeaderMap = Record<string, string | string[]>;
 

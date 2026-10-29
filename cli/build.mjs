@@ -3,7 +3,7 @@
 // `npx tunnel 3000` needs no configuration on a new machine.
 //
 // Default server URL, first match wins:
-//   TUNNELLY_SERVER env var  →  SERVER_URL in the repo's .env  →  http://localhost:4000
+//   TUNNELLY_SERVER env var  →  PUBLIC_URL in the repo's .env  →  http://localhost:4000
 import { build } from 'esbuild';
 import { chmodSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -20,7 +20,7 @@ function fromDotEnv(key) {
   }
 }
 
-const serverUrl = process.env.TUNNELLY_SERVER || fromDotEnv('SERVER_URL') || 'http://localhost:4000';
+const serverUrl = process.env.TUNNELLY_SERVER || fromDotEnv('PUBLIC_URL') || 'http://localhost:4000';
 const { version } = JSON.parse(readFileSync(path.join(here, 'package.json'), 'utf8'));
 const outfile = path.join(here, 'dist', 'index.js');
 

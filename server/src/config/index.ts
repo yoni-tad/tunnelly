@@ -3,16 +3,13 @@ import path from 'node:path';
 export interface ServerConfig {
   /** Port the Node process listens on (the reverse proxy forwards to it). */
   port: number;
-  /** Interface to bind. Use 127.0.0.1 in production so only the proxy can reach it. */
   host: string;
   nodeEnv: string;
-  /** Tunnels live at `<id>.<domain>`; the dashboard + CLI endpoint live at `<domain>`. */
-  domain: string;
-  /** Extra hostnames that serve the dashboard (e.g. `localhost`, the server IP). */
-  appHosts: string[];
-  publicProtocol: 'http' | 'https';
-  /** Port appended to public URLs (empty in production behind 443). */
-  publicPort: string;
+  /**
+   * The one public URL, e.g. https://tunnelly.yoni-tad.com. The tunnel is served
+   * at its root; the dashboard at /_tunnelly/.
+   */
+  publicUrl: string;
   /** Trust X-Forwarded-* headers from the reverse proxy. */
   trustProxy: boolean;
   /** HTTP Basic auth password for the dashboard. Required in production. */
@@ -66,15 +63,9 @@ export function loadConfig(overrides: Partial<ServerConfig> = {}): ServerConfig 
 
   const config: ServerConfig = {
     port,
-    host: process.env.HOST ?? (production ? '127.0.0.1' : '0.0.0.0'),
+    host: process.env.HOST ?? '0.0.0.0',
     nodeEnv,
-    domain: (process.env.DOMAIN ?? 'localhost').toLowerCase(),
-    appHosts: (process.env.APP_HOSTS ?? 'localhost,127.0.0.1')
-      .split(',')
-      .map((h) => h.trim().toLowerCase())
-      .filter(Boolean),
-    publicProtocol: (process.env.PUBLIC_PROTOCOL as 'http' | 'https') ?? (production ? 'https' : 'http'),
-    publicPort: process.env.PUBLIC_PORT ?? (production ? '' : String(port)),
+    publicUrl: process.env.PUBLIC_URL || `http://localhost:${port}`,
     trustProxy: bool('TRUST_PROXY', production),
     dashboardPassword: process.env.DASHBOARD_PASSWORD ?? '',
     connectToken: process.env.TUNNEL_CONNECT_TOKEN ?? '',
@@ -93,8 +84,12 @@ export function loadConfig(overrides: Partial<ServerConfig> = {}): ServerConfig 
   if (production && !config.dashboardPassword) {
     throw new Error('DASHBOARD_PASSWORD must be set when NODE_ENV=production');
   }
-  if (!['http', 'https'].includes(config.publicProtocol)) {
-    throw new Error('PUBLIC_PROTOCOL must be "http" or "https"');
+  try {
+    const url = new URL(config.publicUrl);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error();
+    config.publicUrl = url.origin;
+  } catch {
+    throw new Error(`PUBLIC_URL must be an http(s) URL like https://tunnelly.example.com (got "${config.publicUrl}")`);
   }
   return config;
 }

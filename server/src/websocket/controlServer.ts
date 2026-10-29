@@ -5,7 +5,7 @@ import type { Logger } from '../utils/logger.js';
 import { parseMessage, PROTOCOL_VERSION, type HelloMessage } from '../../../shared/protocol.js';
 import { toBuffer } from '../../../shared/frames.js';
 import { rejectConnection, type TunnelManager } from '../tunnel/TunnelManager.js';
-import { getClientIp } from '../utils/hosts.js';
+import { getClientIp } from '../utils/clientIp.js';
 import { safeEqual } from '../utils/secure.js';
 
 export interface ControlDeps {

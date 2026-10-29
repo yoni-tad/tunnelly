@@ -27,14 +27,14 @@ async function rawConnect(port: number, opts: { autoPong?: boolean } = {}) {
 }
 
 describe('tunnel lifecycle', () => {
-  test('creating a tunnel registers it as CONNECTED with a public hostname', async () => {
+  test('creating a tunnel registers it as CONNECTED on the configured public URL', async () => {
     const server = await startTestServer();
     const app = await startLocalApp((_req, res) => res.end('ok'));
     const client = createClient(server, app.port);
     try {
       const connected = await connectClient(client);
       assert.match(connected.tunnelId, /^tnl_[a-z0-9]{10}$/);
-      assert.match(connected.publicUrl, /^http:\/\/[a-z0-9]{8}\.tunnelly\.test$/);
+      assert.equal(connected.publicUrl, 'http://tunnel.test');
       assert.equal(connected.firstConnect, true);
       const info = server.manager.currentInfo();
       assert.equal(info?.status, 'CONNECTED');
@@ -76,12 +76,13 @@ describe('tunnel lifecycle', () => {
 
     await waitFor(() => server.manager.currentInfo()?.status === 'DISCONNECTED', 2000, 'release');
     const res = await request(server.port, { host: hostOf(publicUrl) });
-    assert.equal(res.status, 404, 'URL no longer routes');
+    assert.equal(res.status, 503, 'URL shows "no tunnel running"');
+    assert.match(res.body.toString(), /No tunnel running/);
 
     // A new tunnel can be created right away (no grace-period blocking).
     const next = createClient(server, 3000);
     const connected = await connectClient(next);
-    assert.notEqual(connected.publicUrl, publicUrl);
+    assert.equal(connected.publicUrl, publicUrl, 'same fixed URL');
     await next.stop();
     await server.close();
   });
@@ -96,7 +97,7 @@ describe('tunnel lifecycle', () => {
       const reconnected = waitForEvent<ConnectedEvent>(client, 'connected');
 
       // Simulate a network drop: kill the socket without a close handshake.
-      const tunnelConn = server.manager.findBySubdomain(hostOf(first.publicUrl).split('.')[0]!)!.connection!;
+      const tunnelConn = server.manager.current!.connection!;
       tunnelConn.terminate();
 
       await disconnected;
@@ -143,7 +144,7 @@ describe('tunnel lifecycle', () => {
     await server.close();
   });
 
-  test('client keeps retrying while the server is down, then connects with a new URL', async () => {
+  test('client keeps retrying while the server is down, then starts a fresh tunnel', async () => {
     const first = await startTestServer();
     const port = first.port;
     const client = createClient(first, 3000);
@@ -160,8 +161,8 @@ describe('tunnel lifecycle', () => {
     const second = await startTestServer({ port });
     const after = await reconnected;
     assert.equal(after.resumed, false);
-    assert.equal(after.urlChanged, true);
-    assert.notEqual(after.publicUrl, original.publicUrl);
+    assert.notEqual(after.tunnelId, original.tunnelId, 'new session after restart');
+    assert.equal(after.publicUrl, original.publicUrl, 'URL is fixed');
 
     await client.stop();
     await second.close();
@@ -226,16 +227,16 @@ describe('tunnel lifecycle', () => {
     const raw = await rawConnect(server.port, { autoPong: false });
     raw.ws.send(helloFrame());
     await waitFor(() => server.manager.currentInfo()?.status === 'CONNECTED', 2000, 'connected');
-    const { hostname } = server.manager.currentInfo()!;
+    const host = 'tunnel.test';
 
     await waitFor(() => server.manager.currentInfo()?.status === 'DISCONNECTED', 2000, 'heartbeat timeout');
     // During the grace period the URL answers "offline" rather than routing elsewhere.
-    const offline = await request(server.port, { host: hostname });
+    const offline = await request(server.port, { host });
     assert.equal(offline.status, 502);
 
-    await waitFor(() => server.manager.findBySubdomain(hostname.split('.')[0]!) === null, 2000, 'release');
-    const gone = await request(server.port, { host: hostname });
-    assert.equal(gone.status, 404);
+    await waitFor(() => server.manager.current === null, 2000, 'release');
+    const gone = await request(server.port, { host });
+    assert.equal(gone.status, 503);
     await server.close();
   });
 
@@ -274,40 +275,23 @@ describe('tunnel lifecycle', () => {
   test('dashboard requires the password when one is configured', async () => {
     const server = await startTestServer({ dashboardPassword: 'hunter2' });
     try {
-      const denied = await request(server.port, { host: 'localhost', path: '/api/status' });
+      const denied = await request(server.port, { host: 'localhost', path: '/_tunnelly/api/status' });
       assert.equal(denied.status, 401);
       const wrong = await request(server.port, {
         host: 'localhost',
-        path: '/api/status',
+        path: '/_tunnelly/api/status',
         headers: { authorization: 'Basic ' + Buffer.from('me:nope').toString('base64') },
       });
       assert.equal(wrong.status, 401);
       const allowed = await request(server.port, {
         host: 'localhost',
-        path: '/api/status',
+        path: '/_tunnelly/api/status',
         headers: { authorization: 'Basic ' + Buffer.from('me:hunter2').toString('base64') },
       });
       assert.equal(allowed.status, 200);
-      const health = await request(server.port, { host: 'localhost', path: '/healthz' });
+      const health = await request(server.port, { host: 'localhost', path: '/_tunnelly/health' });
       assert.equal(health.status, 200, 'health check stays public');
     } finally {
-      await server.close();
-    }
-  });
-
-  test('on-demand TLS check approves only the app host and the active tunnel', async () => {
-    const server = await startTestServer();
-    const client = createClient(server, 3000);
-    try {
-      const { publicUrl } = await connectClient(client);
-      const check = async (domain: string) =>
-        (await request(server.port, { host: 'localhost', path: `/_tunnelly/tls-check?domain=${domain}` })).status;
-      assert.equal(await check('tunnelly.test'), 200);
-      assert.equal(await check(hostOf(publicUrl)), 200);
-      assert.equal(await check('random123.tunnelly.test'), 404);
-      assert.equal(await check('evil.com'), 404);
-    } finally {
-      await client.stop();
       await server.close();
     }
   });
