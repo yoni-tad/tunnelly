@@ -113,6 +113,8 @@ export interface RequestStartMessage {
   /** Path + query string, e.g. `/users?page=2`. */
   path: string;
   headers: HeaderMap;
+  /** No body follows (e.g. a GET): the CLI can send the request immediately. */
+  end?: boolean;
 }
 
 export interface RequestEndMessage {

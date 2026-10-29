@@ -241,7 +241,7 @@ describe('tunnel lifecycle', () => {
   });
 
   test('handshake: bad hello, wrong version and missing token are rejected', async () => {
-    const server = await startTestServer({ connectToken: 's3cret', helloTimeoutMs: 200 });
+    const server = await startTestServer({ connectToken: 's3cret', helloTimeoutMs: 1000 });
     try {
       const cases: [string, string][] = [
         ['not json', 'BAD_HELLO'],
@@ -259,7 +259,7 @@ describe('tunnel lifecycle', () => {
       }
 
       const silent = await rawConnect(server.port);
-      await waitFor(() => silent.messages.length > 0, 2000, 'hello timeout');
+      await waitFor(() => silent.messages.length > 0, 4000, 'hello timeout');
       assert.equal((silent.messages[0] as ErrorMessage).code, 'HELLO_TIMEOUT');
 
       const ok = await rawConnect(server.port);

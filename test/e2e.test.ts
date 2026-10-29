@@ -67,7 +67,8 @@ describe('end-to-end HTTP tunnel', () => {
       ws.on('message', (data, isBinary) => ws.send(data, { binary: isBinary }));
     });
 
-    server = await startTestServer({ requestTimeoutMs: 500 });
+    // 1.5s: long enough for an 8 MB upload on a busy CI box, shorter than /slow (2s).
+    server = await startTestServer({ requestTimeoutMs: 1500 });
     client = createClient(server, app.port);
     client.on('request', (log) => cliLogs.push(log));
     const connected = await connectClient(client);
@@ -263,3 +264,52 @@ describe('local application unavailable', () => {
     }
   });
 });
+
+describe('performance paths', () => {
+  test('large text responses are compressed over the tunnel and arrive intact', async () => {
+    const js = Buffer.from('export const x = "hello tunnel";\n'.repeat(60_000)); // ~2 MB of JavaScript
+    const app = await startLocalApp((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/javascript' });
+      res.end(js);
+    });
+    const server = await startTestServer();
+    const client = createClient(server, app.port);
+    try {
+      await connectClient(client);
+      const tunnelSocket = (client as unknown as { ws: { extensions: string } }).ws;
+      assert.match(tunnelSocket.extensions, /permessage-deflate/, 'compression negotiated');
+      const res = await request(server.port, { host: 'tunnel.test', path: '/app.js' });
+      assert.equal(res.status, 200);
+      assert.equal(sha(res.body), sha(js));
+    } finally {
+      await client.stop();
+      await server.close();
+      await app.close();
+    }
+  });
+
+  test('app listening only on IPv6 (like Vite) is reached via "localhost"', async () => {
+    const { findLocalAddress } = await import('../cli/src/network/checkLocal.js');
+    const http = await import('node:http');
+    const app = http.createServer((_req, res) => res.end('ipv6 ok'));
+    await new Promise<void>((resolve) => app.listen(0, '::1', resolve));
+    const port = (app.address() as { port: number }).port;
+
+    const localAddress = await findLocalAddress('localhost', port);
+    assert.equal(localAddress, '::1');
+
+    const server = await startTestServer();
+    const client = createClient(server, port, { localHost: 'localhost', localAddress: localAddress! });
+    try {
+      await connectClient(client);
+      const res = await request(server.port, { host: 'tunnel.test', path: '/' });
+      assert.equal(res.body.toString(), 'ipv6 ok');
+    } finally {
+      await client.stop();
+      await server.close();
+      app.closeAllConnections();
+      await new Promise((r) => app.close(r));
+    }
+  });
+});
+

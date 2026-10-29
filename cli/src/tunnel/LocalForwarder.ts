@@ -15,10 +15,15 @@ export interface RequestLog {
 }
 
 export interface ForwarderIO {
+  /** Name used in the Host header and messages (e.g. `localhost`). */
   host: string;
   port: number;
+  /** Address to actually connect to (e.g. `::1`), resolved once up front. */
+  address(): string;
+  /** Called when the local app refuses connections, so the address can be re-resolved. */
+  onLocalUnavailable(): void;
   send(message: ClientMessage): void;
-  sendFrame(kind: FrameKind, id: string, payload: Buffer): void;
+  sendFrame(kind: FrameKind, id: string, payload: Buffer, compress?: boolean): void;
   /** The current tunnel socket, used for send-buffer backpressure. */
   socket(): { bufferedAmount: number; readyState: number } | null;
   onLog(log: RequestLog): void;
@@ -35,6 +40,14 @@ interface Exchange {
   responseBytes: number;
   pausedRemote: boolean;
   done: boolean;
+}
+
+/** Text-like content compresses ~5–10× over the tunnel; images/video/zips don't. */
+const COMPRESSIBLE = /^(text\/|application\/(javascript|json|xml|wasm|manifest\+json|ld\+json|x-javascript)|image\/svg)/i;
+
+function isCompressible(res: IncomingMessage): boolean {
+  if (res.headers['content-encoding']) return false; // already gzip/br
+  return COMPRESSIBLE.test(String(res.headers['content-type'] ?? ''));
 }
 
 const UNAVAILABLE_CODES = new Set(['ECONNREFUSED', 'ECONNRESET', 'EHOSTUNREACH', 'ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN']);
@@ -58,7 +71,14 @@ export class LocalForwarder {
     headers.host = `${host}:${port}`;
     delete headers.expect;
 
-    const localReq = http.request({ host, port, method: msg.method, path: msg.path, headers, agent: this.agent });
+    const localReq = http.request({
+      host: this.io.address(),
+      port,
+      method: msg.method,
+      path: msg.path,
+      headers,
+      agent: this.agent,
+    });
     const ex: Exchange = {
       id: msg.id,
       method: msg.method,
@@ -73,10 +93,12 @@ export class LocalForwarder {
     };
     this.exchanges.set(ex.id, ex);
 
+    if (msg.end) localReq.end();
     localReq.on('response', (res) => this.handleResponse(ex, res));
     localReq.on('error', (err: NodeJS.ErrnoException) => {
       if (ex.done) return;
       const unavailable = !ex.status && UNAVAILABLE_CODES.has(err.code ?? '');
+      if (unavailable) this.io.onLocalUnavailable();
       this.io.send({
         type: 'response-error',
         id: ex.id,
@@ -104,11 +126,12 @@ export class LocalForwarder {
     });
 
     const source = new PausableSource(res);
+    const compress = isCompressible(res);
     ex.source = source;
     res.on('data', (chunk: Buffer) => {
       if (ex.done) return;
       ex.responseBytes += chunk.length;
-      this.io.sendFrame(FrameKind.BODY, ex.id, chunk);
+      this.io.sendFrame(FrameKind.BODY, ex.id, chunk, compress);
       const socket = this.io.socket();
       if (socket) source.checkSocket(socket);
     });
@@ -140,7 +163,8 @@ export class LocalForwarder {
   }
 
   onRequestEnd(id: string): void {
-    this.exchanges.get(id)?.localReq.end();
+    const localReq = this.exchanges.get(id)?.localReq;
+    if (localReq && !localReq.writableEnded) localReq.end(); // already ended if request-start had `end`
   }
 
   onAbort(id: string): void {

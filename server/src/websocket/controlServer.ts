@@ -16,7 +16,12 @@ export interface ControlDeps {
 
 /** WebSocket server for CLI control connections (`/_tunnelly/connect`). */
 export function createControlServer(deps: ControlDeps): WebSocketServer {
-  const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 * 1024 });
+  const wss = new WebSocketServer({
+    noServer: true,
+    maxPayload: 16 * 1024 * 1024,
+    // Lets the CLI compress text responses on the (usually slow) upload leg.
+    perMessageDeflate: { threshold: 1024 },
+  });
   wss.on('connection', (ws: WebSocket, req: IncomingMessage) => handleHandshake(ws, req, deps));
   return wss;
 }

@@ -14,9 +14,10 @@ export class LocalWsForwarder {
 
   onOpen(msg: WsOpenMessage): void {
     const { host, port } = this.io;
-    const headers = { ...msg.headers } as Record<string, string>;
-    delete headers.host;
-    const ws = new WebSocket(`ws://${host}:${port}${msg.path}`, msg.protocols, {
+    const address = this.io.address();
+    const headers = { ...msg.headers, host: `${host}:${port}` } as Record<string, string>;
+    const target = address.includes(':') ? `[${address}]` : address; // IPv6 literal
+    const ws = new WebSocket(`ws://${target}:${port}${msg.path}`, msg.protocols, {
       headers,
       perMessageDeflate: false,
       handshakeTimeout: 10_000,

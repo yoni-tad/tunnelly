@@ -50,10 +50,21 @@ The CLI connects to `https://tunnelly.yoni-tad.com` by default (set in
 [`cli/src/config.ts`](cli/src/config.ts); override with `--server` or `TUNNELLY_SERVER`).
 
 ```bash
-npm install && npm run build      # once, in this repo
-npx tunnelly 3000                 # in this repo
-npm i -g ./cli                    # optional: then `tunnelly 3000` works anywhere on this computer
-npm publish -w cli                # optional: then `npx tunnelly 3000` works on any computer
+npm i -g tunnelly        # recommended: install once, starts instantly
+tunnelly 3000
+
+npx tunnelly@latest 3000 # or without installing (downloads on each new version)
+```
+
+The startup line shows the CLI version (`Connecting to … (v1.0.1)`). If it says
+`http://localhost:4000` or shows an old version, you're running an outdated copy;
+run `npm i -g tunnelly@latest`.
+
+**Publishing a new CLI version** (after changing anything in `cli/` or `shared/`):
+
+```bash
+npm version patch -w cli   # 1.0.1 → 1.0.2
+npm publish -w cli         # builds automatically before publishing
 ```
 
 The npm package is named `tunnelly` because `tunnel` is taken on npm. It also

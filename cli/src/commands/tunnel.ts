@@ -1,6 +1,6 @@
 import { VERSION } from '../config.js';
 import { Ui } from '../logger/ui.js';
-import { isLocalPortReachable } from '../network/checkLocal.js';
+import { findLocalAddress } from '../network/checkLocal.js';
 import { TunnelClient } from '../tunnel/TunnelClient.js';
 import { parseCliArgs, USAGE } from '../utils/args.js';
 
@@ -25,7 +25,8 @@ export async function runTunnelCommand(argv: string[]): Promise<number> {
   const options = parsed.options;
   const localUrl = `http://${options.localHost}:${options.port}`;
 
-  if (!options.skipCheck && !(await isLocalPortReachable(options.localHost, options.port))) {
+  const localAddress = options.skipCheck ? undefined : await findLocalAddress(options.localHost, options.port);
+  if (localAddress === null) {
     ui.error(
       `Cannot connect to ${options.localHost}:${options.port}`,
       'Make sure your local application is running.',
@@ -35,12 +36,13 @@ export async function runTunnelCommand(argv: string[]): Promise<number> {
   }
 
   ui.banner();
-  ui.connecting(options.serverUrl);
+  ui.connecting(options.serverUrl, VERSION);
 
   const client = new TunnelClient({
     serverUrl: options.serverUrl,
     localHost: options.localHost,
     localPort: options.port,
+    localAddress,
     token: options.token,
     clientVersion: VERSION,
   });

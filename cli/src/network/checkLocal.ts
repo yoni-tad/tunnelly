@@ -1,17 +1,26 @@
 import net from 'node:net';
 
-/** Resolves true if something accepts TCP connections on host:port. */
-export function isLocalPortReachable(host: string, port: number, timeoutMs = 2000): Promise<boolean> {
+/**
+ * Finds the address the local app actually accepts connections on, or null if
+ * nothing is listening. "localhost" may be ::1 or 127.0.0.1 depending on the app
+ * (Vite often binds only ::1); resolving it once avoids paying the lookup and
+ * the IPv4/IPv6 fallback delay on every new connection.
+ */
+export function findLocalAddress(host: string, port: number, timeoutMs = 2000): Promise<string | null> {
   return new Promise((resolve) => {
-    // autoSelectFamily: "localhost" may resolve to ::1 while the app listens on 127.0.0.1 (or vice versa)
     const socket = net.connect({ host, port, autoSelectFamily: true });
-    const done = (ok: boolean) => {
+    const done = (address: string | null) => {
       socket.destroy();
-      resolve(ok);
+      resolve(address);
     };
     socket.setTimeout(timeoutMs);
-    socket.once('connect', () => done(true));
-    socket.once('timeout', () => done(false));
-    socket.once('error', () => done(false));
+    socket.once('connect', () => done(socket.remoteAddress ?? host));
+    socket.once('timeout', () => done(null));
+    socket.once('error', () => done(null));
   });
+}
+
+/** Resolves true if something accepts TCP connections on host:port. */
+export async function isLocalPortReachable(host: string, port: number, timeoutMs = 2000): Promise<boolean> {
+  return (await findLocalAddress(host, port, timeoutMs)) !== null;
 }

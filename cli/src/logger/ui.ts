@@ -38,8 +38,8 @@ export class Ui {
     this.line();
   }
 
-  connecting(serverUrl: string): void {
-    this.line(c.dim(`  Connecting to ${serverUrl} …`));
+  connecting(serverUrl: string, version: string): void {
+    this.line(c.dim(`  Connecting to ${serverUrl} …  (v${version})`));
   }
 
   connected(info: { localUrl: string; publicUrl: string; firstConnect: boolean; resumed: boolean; urlChanged: boolean }): void {

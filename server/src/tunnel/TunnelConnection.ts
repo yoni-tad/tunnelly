@@ -89,7 +89,8 @@ export class TunnelConnection {
   }
 
   sendFrame(kind: FrameKind, id: string, payload: Buffer): void {
-    if (this.ws.readyState === WebSocket.OPEN) this.ws.send(encodeFrame(kind, id, payload));
+    // The server → CLI direction is rarely the bottleneck; don't spend CPU compressing it.
+    if (this.ws.readyState === WebSocket.OPEN) this.ws.send(encodeFrame(kind, id, payload), { compress: false });
   }
 
   /** Close without triggering the resume grace period. */
@@ -148,16 +149,25 @@ export class TunnelConnection {
     }
 
     this.exchanges.set(ex.id, ex);
-    // Idle timeout: restarted by every uploaded chunk, cleared once the local app starts responding.
+    // Timeout = how long the local app takes to start answering once the request
+    // is fully sent. Upload time (including backpressure pauses) never counts.
     const armTimeout = () => {
-      if (ex.timer) clearTimeout(ex.timer);
+      if (ex.timer || ex.status !== 0 || ex.finished) return;
       ex.timer = setTimeout(() => {
         this.failExchange(ex, downPages.timeout(this.tunnel.localPort, Math.round(config.requestTimeoutMs / 1000)));
       }, config.requestTimeoutMs);
     };
-    armTimeout();
 
-    this.send({ type: 'request-start', id: ex.id, method: ex.method, path: ex.path, headers: ex.requestHeaders });
+    // Most requests (GET, HEAD…) have no body: say so up front so the CLI can start
+    // immediately. `request-end` is still sent for CLIs older than 1.0.1.
+    const hasBody = req.headers['transfer-encoding'] !== undefined || declaredLength > 0;
+    this.send({ type: 'request-start', id: ex.id, method: ex.method, path: ex.path, headers: ex.requestHeaders, end: !hasBody });
+    if (!hasBody) {
+      this.send({ type: 'request-end', id: ex.id });
+      armTimeout();
+      req.resume();
+      return;
+    }
 
     req.on('data', (chunk: Buffer) => {
       if (ex.finished) return;
@@ -169,10 +179,11 @@ export class TunnelConnection {
       }
       this.sendFrame(FrameKind.BODY, ex.id, chunk);
       ex.source.checkSocket(this.ws);
-      if (ex.status === 0) armTimeout();
     });
     req.on('end', () => {
-      if (!ex.finished) this.send({ type: 'request-end', id: ex.id });
+      if (ex.finished) return;
+      this.send({ type: 'request-end', id: ex.id });
+      armTimeout();
     });
   }
 

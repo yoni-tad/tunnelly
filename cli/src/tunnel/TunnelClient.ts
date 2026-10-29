@@ -12,6 +12,7 @@ import {
 import { decodeFrame, encodeFrame, FrameKind, toBuffer } from '../../../shared/frames.js';
 import { toWebSocketUrl } from '../config.js';
 import { backoffDelay, DEFAULT_BACKOFF, type BackoffOptions } from '../utils/backoff.js';
+import { findLocalAddress } from '../network/checkLocal.js';
 import { LocalForwarder, type ForwarderIO, type RequestLog } from './LocalForwarder.js';
 import { LocalWsForwarder } from './LocalWsForwarder.js';
 
@@ -19,6 +20,8 @@ export interface TunnelClientOptions {
   serverUrl: string;
   localHost: string;
   localPort: number;
+  /** Resolved address of the local app (from the startup port check), if known. */
+  localAddress?: string;
   clientVersion: string;
   token?: string;
   backoff?: BackoffOptions;
@@ -76,7 +79,9 @@ export class TunnelClient extends EventEmitter<TunnelClientEvents> {
   private readonly http: LocalForwarder;
   private readonly wsForwarder: LocalWsForwarder;
   private readonly wsUrl: string;
-  private readonly opts: Required<Omit<TunnelClientOptions, 'token'>> & { token?: string };
+  private readonly opts: Required<Omit<TunnelClientOptions, 'token' | 'localAddress'>> & { token?: string };
+  private localAddress: string;
+  private resolvingLocal = false;
 
   constructor(options: TunnelClientOptions) {
     super();
@@ -88,19 +93,35 @@ export class TunnelClient extends EventEmitter<TunnelClientEvents> {
       ...options,
     };
     this.wsUrl = toWebSocketUrl(options.serverUrl);
+    this.localAddress = options.localAddress ?? options.localHost;
 
     const io: ForwarderIO = {
       host: options.localHost,
       port: options.localPort,
+      address: () => this.localAddress,
+      onLocalUnavailable: () => this.reresolveLocal(),
       send: (msg) => this.send(msg),
-      sendFrame: (kind, id, payload) => {
-        if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(encodeFrame(kind, id, payload));
+      sendFrame: (kind, id, payload, compress = false) => {
+        if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(encodeFrame(kind, id, payload), { compress });
       },
       socket: () => this.ws,
       onLog: (log) => this.emit('request', log),
     };
     this.http = new LocalForwarder(io);
     this.wsForwarder = new LocalWsForwarder(io);
+  }
+
+  /** The app may have restarted on another address family (::1 vs 127.0.0.1). */
+  private reresolveLocal(): void {
+    if (this.resolvingLocal) return;
+    this.resolvingLocal = true;
+    findLocalAddress(this.opts.localHost, this.opts.localPort)
+      .then((address) => {
+        if (address) this.localAddress = address;
+      })
+      .finally(() => {
+        this.resolvingLocal = false;
+      });
   }
 
   get publicUrl(): string | null {
@@ -149,7 +170,8 @@ export class TunnelClient extends EventEmitter<TunnelClientEvents> {
 
     const ws = new WebSocket(this.wsUrl, {
       handshakeTimeout: this.opts.connectTimeoutMs,
-      perMessageDeflate: false,
+      // Compression is opt-in per message (text responses only); see LocalForwarder.
+      perMessageDeflate: { threshold: 1024, zlibDeflateOptions: { level: 4 } },
       maxPayload: 64 * 1024 * 1024,
     });
     this.ws = ws;

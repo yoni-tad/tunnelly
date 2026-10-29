@@ -64,9 +64,22 @@ Bodies travel as chunks and are never assembled in memory. Backpressure works at
 Limits: `MAX_REQUEST_BODY_MB` (413), and a 64 MB WebSocket message cap. Response
 bodies have no size limit, since they stream.
 
-**Idle timeout instead of a fixed timeout.**
-`REQUEST_TIMEOUT_MS` restarts with every uploaded chunk and stops once the local
-app begins responding. A slow 50 MB upload is fine, but a hung app gets a "taking too long" page.
+**Timeout starts after the upload.**
+`REQUEST_TIMEOUT_MS` starts once the request body has been fully received (at
+once for GET/HEAD) and stops when the local app starts responding. Upload time,
+including backpressure pauses, never counts. A slow 50 MB upload is fine, but a
+hung app gets a "taking too long" page. Long streaming responses are never cut off.
+
+**Speed.**
+- The CLI compresses text responses (HTML, JS, CSS, JSON, SVG) with WebSocket
+  permessage-deflate on the laptop → server leg. That's usually a home upload
+  link, and Vite and other dev servers send uncompressed JavaScript. Already
+  compressed or binary bodies are sent as-is.
+- Requests without a body are sent with `end: true` on `request-start`, so the CLI
+  calls the local app immediately instead of waiting for `request-end`. That message
+  is still sent, so CLIs older than 1.0.1 keep working.
+- `localhost` is resolved once at startup to the address the app actually listens
+  on (often `::1` for Vite). It is re-resolved if the app later refuses connections.
 
 **Down pages always use 503.**
 Cloudflare replaces an origin's 502/504 responses with its own error page, so
