@@ -1,0 +1,31 @@
+# systemd unit for the Tunnelly server.
+#   sudo cp deploy/tunnelly.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now tunnelly
+#   journalctl -u tunnelly -f
+
+[Unit]
+Description=Tunnelly tunnel server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tunnelly
+Group=tunnelly
+WorkingDirectory=/opt/tunnelly
+EnvironmentFile=/opt/tunnelly/.env
+ExecStart=/usr/bin/node server/dist/server.js
+Restart=always
+RestartSec=2
+# SIGTERM → Tunnelly closes tunnels with "server restarting"; CLIs reconnect.
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+# Hardening — the server writes nothing to disk.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

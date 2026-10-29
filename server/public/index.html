@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tunnelly</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%233fb950'/></svg>">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Tunnelly</div>
+    <div class="server mono" id="server-domain"></div>
+  </header>
+
+  <main>
+    <section class="panel" aria-labelledby="tunnel-heading">
+      <div class="panel-head">
+        <h2 id="tunnel-heading">Tunnel</h2>
+        <span class="mono muted" id="tunnel-id"></span>
+      </div>
+      <div class="cards">
+        <div class="card narrow">
+          <div class="label">Status</div>
+          <div class="value"><span class="dot" id="status-dot"></span><span id="status">—</span></div>
+          <div class="sub muted" id="status-sub"></div>
+        </div>
+        <div class="card wide">
+          <div class="label">Public URL</div>
+          <div class="value mono url-row">
+            <a id="public-url" target="_blank" rel="noopener">—</a>
+            <button class="copy" id="copy-url" type="button" hidden>Copy</button>
+          </div>
+        </div>
+        <div class="card narrow">
+          <div class="label">Local</div>
+          <div class="value mono" id="local">—</div>
+        </div>
+        <div class="card">
+          <div class="label">Connected for</div>
+          <div class="value mono" id="uptime">—</div>
+          <div class="sub muted" id="reconnects"></div>
+        </div>
+        <div class="card">
+          <div class="label">Requests</div>
+          <div class="value mono" id="requests">—</div>
+        </div>
+        <div class="card">
+          <div class="label">Bandwidth</div>
+          <div class="value mono" id="bandwidth">—</div>
+          <div class="sub muted mono" id="bandwidth-split"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="requests-heading">
+      <div class="panel-head">
+        <h2 id="requests-heading">Requests</h2>
+        <input id="filter" class="filter mono" type="search" placeholder="Filter: /api, POST, 404…" autocomplete="off">
+      </div>
+      <div class="layout">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Started</th><th>Method</th><th>Path</th><th class="num">Code</th><th class="num">Time</th><th class="num">Size</th></tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <p class="empty muted" id="empty">No requests yet. Open your public URL to see traffic here.</p>
+        </div>
+        <aside class="detail" id="detail" hidden>
+          <div class="detail-head">
+            <h3 class="mono" id="detail-title"></h3>
+            <button type="button" class="close" id="detail-close" aria-label="Close details">×</button>
+          </div>
+          <div id="detail-body"></div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

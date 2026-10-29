@@ -1,0 +1,15 @@
+{
+  "name": "@tunnelly/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "esbuild src/server.ts --bundle --platform=node --target=node20 --format=esm --packages=external --sourcemap --outfile=dist/server.js",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "ws": "^8.18.0"
+  }
+}

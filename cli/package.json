@@ -1,0 +1,25 @@
+{
+  "name": "tunnelly",
+  "version": "1.0.0",
+  "description": "Expose localhost through your own domain: npx tunnelly 3000",
+  "type": "module",
+  "bin": {
+    "tunnel": "bin/tunnel.js",
+    "tunnelly": "bin/tunnel.js"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "prepublishOnly": "node build.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "license": "MIT"
+}

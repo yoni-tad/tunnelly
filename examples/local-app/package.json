@@ -1,0 +1,13 @@
+{
+  "name": "@tunnelly/local-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tiny app for testing Tunnelly by hand",
+  "scripts": {
+    "dev": "node server.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

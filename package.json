@@ -1,0 +1,32 @@
+{
+  "name": "tunnelly-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Tunnelly — simple personal localhost HTTPS tunnel",
+  "type": "module",
+  "workspaces": [
+    "server",
+    "cli",
+    "examples/local-app"
+  ],
+  "scripts": {
+    "dev": "tsx watch server/src/server.ts",
+    "start": "node server/dist/server.js",
+    "cli": "tsx cli/src/index.ts",
+    "local-app": "node examples/local-app/server.mjs",
+    "build": "npm run build -w server && npm run build -w cli",
+    "typecheck": "tsc -p server && tsc -p cli && tsc -p test",
+    "test": "node --import tsx --test --test-concurrency=1 \"test/**/*.test.ts\" \"cli/test/**/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "esbuild": "^0.28.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=20.12"
+  }
+}
